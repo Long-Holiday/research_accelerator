@@ -8,18 +8,28 @@ class Structure(BaseModel):
     result: str = Field(description="result of this paper")
     conclusion: str = Field(description="conclusion of this paper")
     remote_sensing_cross: str = Field(
-        description="与遥感交叉方案。开头第一句先给出交叉可行性百分比（格式如：交叉可行性：XX%。），后面再给出具体交叉方案。"
+        description="与遥感交叉或者改进方案。如果本身就是遥感论文，给出有哪些可以改进的地方（改进方案）；如果是其他学科的论文，给出与遥感交叉的具体方案。开头第一句必须先给出可行性百分比，格式为：交叉/改进可行性：XX%。，后面再给出具体方案。"
     )
+    abstract_zh: str = Field(description="将原始的 abstract (英文摘要) 翻译为流畅、专业的学术中文")
 
     @field_validator("remote_sensing_cross")
     @classmethod
     def validate_remote_sensing_cross(cls, v: str) -> str:
         v = v.strip()
-        if re.match(r"^交叉可行性[：:]\s*\d+%", v):
-            return v
-        match = re.search(r"(\d+)%", v)
-        if match:
-            percent = match.group(1)
-            return f"交叉可行性：{percent}%。{v}"
+        # 尝试匹配文本开头的百分比数字
+        # 比如 "交叉/改进可行性：95%。具体方案..." 或 "交叉可行性：85%。具体方案..." 或 "改进可行性：90%。具体方案..."
+        match_start = re.match(r"^(?:交叉/改进可行性|交叉可行性|改进可行性)[：:]\s*(\d+)\s*%\s*[。.]?\s*(.*)", v, re.IGNORECASE)
+        if match_start:
+            percent = match_start.group(1)
+            content = match_start.group(2).strip()
+            return f"交叉/改进可行性：{percent}%。{content}"
+            
+        # 如果不是标准前缀开头，但文本里包含 XX% 格式，则提取第一个百分比
+        match_any = re.search(r"(\d+)\s*%", v)
+        if match_any:
+            percent = match_any.group(1)
+            # 清理掉可能存在的其他类似前缀
+            content = re.sub(r"^(?:交叉/改进可行性|交叉可行性|改进可行性)[：:]\s*\d+\s*%\s*[。.]?", "", v, flags=re.IGNORECASE).strip()
+            return f"交叉/改进可行性：{percent}%。{content}"
         else:
-            return f"交叉可行性：70%。{v}"
+            return f"交叉/改进可行性：70%。{v}"

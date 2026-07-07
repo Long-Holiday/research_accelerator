@@ -16,8 +16,10 @@ Result: {result}
 
 Conclusion: {conclusion}
 
-与遥感交叉方案: {remote_sensing_cross}
+与遥感交叉或改进方案: {remote_sensing_cross}
 
-Abstract: {summary}
+Abstract (中文): {abstract_zh}
+
+Abstract (英文): {summary}
 
 </details>

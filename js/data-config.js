@@ -27,11 +27,39 @@ const DATA_CONFIG = {
     dataBranch: 'data',
 
     /**
+     * 获取实际的仓库所有者和仓库名称
+     * 如果未被 GitHub Actions 注入（仍为占位符），尝试从当前 GitHub Pages 域名中解析
+     */
+    getRepoInfo: function() {
+        let owner = this.repoOwner;
+        let repo = this.repoName;
+
+        // 如果是占位符，尝试从当前 URL 解析 (适用于 GitHub Pages 默认域名)
+        if (owner === 'PLACEHOLDER_REPO_OWNER' || repo === 'PLACEHOLDER_REPO_NAME') {
+            const hostname = window.location.hostname;
+            const pathname = window.location.pathname; // 例如 "/daily-arXiv-ai-enhanced/"
+            
+            if (hostname.endsWith('.github.io')) {
+                // hostname 格式为: owner.github.io
+                owner = hostname.split('.')[0];
+                
+                // pathname 格式为: /repo/ 或 /repo/index.html
+                const pathParts = pathname.split('/').filter(p => p);
+                if (pathParts.length > 0) {
+                    repo = pathParts[0];
+                }
+            }
+        }
+        return { owner, repo };
+    },
+
+    /**
      * Get the base URL for raw GitHub content from data branch
      * @returns {string} Base URL for raw GitHub content
      */
     getDataBaseUrl: function() {
-        return `https://raw.githubusercontent.com/${this.repoOwner}/${this.repoName}/${this.dataBranch}`;
+        const { owner, repo } = this.getRepoInfo();
+        return `https://raw.githubusercontent.com/${owner}/${repo}/${this.dataBranch}`;
     },
 
     /**
@@ -40,6 +68,14 @@ const DATA_CONFIG = {
      * @returns {string} Full URL to the data file
      */
     getDataUrl: function(filePath) {
+        // 如果是本地开发环境，且没有注入实际的仓库信息，直接使用相对路径加载本地数据，方便调试
+        const hostname = window.location.hostname;
+        const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.');
+        
+        if (isLocal && (this.repoOwner === 'PLACEHOLDER_REPO_OWNER' || this.repoName === 'PLACEHOLDER_REPO_NAME')) {
+            return `./${filePath}`;
+        }
+        
         return `${this.getDataBaseUrl()}/${filePath}`;
     }
 };

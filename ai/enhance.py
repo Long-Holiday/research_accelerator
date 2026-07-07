@@ -49,14 +49,14 @@ def process_single_item(chain, item: Dict, language: str) -> Dict:
             if resp.status_code == 200:
                 result = resp.json()
                 # 约定接口返回 {"sensitive": true/false, ...}
-                return result.get("sensitive", True)
+                return result.get("sensitive", False)
             else:
                 # 如果接口异常，默认不触发敏感词
                 print(f"Sensitive check failed with status {resp.status_code}", file=sys.stderr)
-                return True
+                return False
         except Exception as e:
             print(f"Sensitive check error: {e}", file=sys.stderr)
-            return True
+            return False
 
     def check_github_code(content: str) -> Dict:
         """提取并验证 GitHub 链接"""
@@ -122,7 +122,8 @@ def process_single_item(chain, item: Dict, language: str) -> Dict:
         "method": "Method extraction failed",
         "result": "Result analysis unavailable",
         "conclusion": "Conclusion extraction failed",
-        "remote_sensing_cross": "Remote sensing cross-disciplinary scheme unavailable"
+        "remote_sensing_cross": "Remote sensing cross-disciplinary scheme unavailable",
+        "abstract_zh": "Abstract translation unavailable"
     }
     
     try:
@@ -211,7 +212,8 @@ def process_all_items(data: List[Dict], model_name: str, language: str, max_work
                     "method": "Processing failed",
                     "result": "Processing failed",
                     "conclusion": "Processing failed",
-                    "remote_sensing_cross": "Processing failed"
+                    "remote_sensing_cross": "Processing failed",
+                    "abstract_zh": "Processing failed"
                 }
     
     return processed_data

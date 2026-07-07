@@ -55,6 +55,12 @@ fi
 echo ""
 echo "=== 开始本地调试流程 / Starting Local Debug Workflow ==="
 
+# 激活 Python 虚拟环境 / Activate Python virtual environment
+if [ -d ".venv" ]; then
+    echo "激活虚拟环境 .venv... / Activating virtual environment .venv..."
+    source .venv/bin/activate
+fi
+
 # 获取当前日期 / Get current date
 today=`date -u "+%Y-%m-%d"`
 

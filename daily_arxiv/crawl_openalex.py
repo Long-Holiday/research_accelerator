@@ -105,7 +105,10 @@ def main():
             today_dt = datetime.now(timezone.utc)
         yesterday_dt = today_dt - timedelta(days=1)
         yesterday_str = yesterday_dt.strftime("%Y-%m-%d")
-        from_date = yesterday_str
+        # 由于 OpenAlex 存在收录延迟，只爬取“昨天”一天极大概率由于延迟导致数据为空。
+        # 故向前爬取最近 7 天的文献。后续会有 check_stats.py 脚本基于过去 7 天的历史数据进行去重。
+        from_dt = today_dt - timedelta(days=7)
+        from_date = from_dt.strftime("%Y-%m-%d")
         to_date = yesterday_str
         
     print(f"Target publication date range: {from_date} to {to_date}")
