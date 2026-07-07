@@ -55,6 +55,11 @@ jobs:
             exit 1
         fi
         
+        # 爬取 OpenAlex 期刊论文并追加到数据文件中
+        # Crawl OpenAlex journal papers and append to the data file
+        echo "开始爬取 OpenAlex 期刊论文... / Starting to crawl OpenAlex journal papers..."
+        python crawl_openalex.py --date $today --output ../data/${today}.jsonl
+        
         echo "crawl_date=$today" >> $GITHUB_OUTPUT
         echo "爬取完成 / Crawling completed"
         

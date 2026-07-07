@@ -80,6 +80,10 @@ if [ ! -f "../data/${today}.jsonl" ]; then
     exit 1
 fi
 
+# 爬取 OpenAlex 期刊论文并追加到数据文件中 / Crawl OpenAlex journal papers and append to the data file
+echo "开始爬取 OpenAlex 期刊论文... / Starting to crawl OpenAlex journal papers..."
+python crawl_openalex.py --date ${today} --output ../data/${today}.jsonl
+
 # 第二步：检查去重 / Step 2: Check duplicates  
 echo "步骤2：执行去重检查... / Step 2: Performing intelligent deduplication check..."
 python daily_arxiv/check_stats.py

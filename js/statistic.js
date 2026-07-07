@@ -2,8 +2,26 @@ let currentDate = '';
 let availableDates = [];
 let paperData = {};
 let flatpickrInstance = null;
-let isRangeMode = false;
+let isRangeMode = true;
 let allPapersData = [];
+let selectedCategory = 'All';
+
+const CATEGORY_NAMES = {
+  'cs.CV': '计算机视觉 (Computer Vision)',
+  'cs.CL': '自然语言处理 (Natural Language Processing)',
+  'cs.LG': '机器学习 (Machine Learning)',
+  'cs.AI': '人工智能 (Artificial Intelligence)',
+  'cs.NE': '神经网络 (Neural Computing)',
+  'cs.RO': '机器人 (Robotics)',
+  'cs.IR': '信息检索 (Information Retrieval)',
+  'cs.HC': '人机交互 (Human-Computer Interaction)',
+  'cs.CY': '计算与社会 (Computers and Society)',
+  'cs.CR': '加密与安全 (Cryptography and Security)',
+  'cs.DS': '数据结构与算法 (Data Structures)',
+  'cs.DB': '数据库 (Databases)',
+  'cs.SE': '软件工程 (Software Engineering)',
+  'cs.MA': '多智能体系统 (Multiagent Systems)'
+};
 
 document.addEventListener('DOMContentLoaded', () => {
   // Check screen size
@@ -31,7 +49,19 @@ document.addEventListener('DOMContentLoaded', () => {
   
   fetchAvailableDates().then(() => {
     if (availableDates.length > 0) {
-      loadPapersByDateRange(availableDates[0], availableDates[0]);
+      const latestDateStr = availableDates[0];
+      const latestDate = new Date(latestDateStr);
+      const oneMonthAgo = new Date(latestDate);
+      oneMonthAgo.setDate(oneMonthAgo.getDate() - 30);
+      
+      const oneMonthAgoStr = oneMonthAgo.getFullYear() + "-" + 
+                             String(oneMonthAgo.getMonth() + 1).padStart(2, '0') + "-" + 
+                             String(oneMonthAgo.getDate()).padStart(2, '0');
+                             
+      const datesInRange = availableDates.filter(d => d >= oneMonthAgoStr && d <= latestDateStr);
+      const startDateStr = datesInRange.length > 0 ? datesInRange[datesInRange.length - 1] : latestDateStr;
+      
+      loadPapersByDateRange(startDateStr, latestDateStr);
     }
   });
 });
@@ -199,11 +229,29 @@ function initDatePicker() {
     enabledDatesMap[date] = true;
   });
   
+  // 默认加载最近一个月
+  let defaultDates = availableDates[0];
+  if (isRangeMode && availableDates.length > 0) {
+    const latestDateStr = availableDates[0];
+    const latestDate = new Date(latestDateStr);
+    const oneMonthAgo = new Date(latestDate);
+    oneMonthAgo.setDate(oneMonthAgo.getDate() - 30);
+    
+    const oneMonthAgoStr = oneMonthAgo.getFullYear() + "-" + 
+                           String(oneMonthAgo.getMonth() + 1).padStart(2, '0') + "-" + 
+                           String(oneMonthAgo.getDate()).padStart(2, '0');
+                           
+    const datesInRange = availableDates.filter(d => d >= oneMonthAgoStr && d <= latestDateStr);
+    const startDateStr = datesInRange.length > 0 ? datesInRange[datesInRange.length - 1] : latestDateStr;
+    defaultDates = [new Date(startDateStr), new Date(latestDateStr)];
+  }
+  
   // 配置 Flatpickr
   flatpickrInstance = flatpickr(datepickerInput, {
     inline: true,
     dateFormat: "Y-m-d",
-    defaultDate: availableDates[0],
+    mode: isRangeMode ? 'range' : 'single',
+    defaultDate: defaultDates,
     enable: [
       function(date) {
         // 只启用有效日期
@@ -252,6 +300,79 @@ function toggleRangeMode() {
   }
 }
 
+// 提取关键词并进行总结
+const extractKeywords = (text) => {
+  // 移除特殊字符和多余空格
+  const cleanText = text.replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  
+  // 使用 compromise 进行文本处理
+  const doc = nlp(cleanText);
+  
+  // 提取名词短语和重要词汇
+  const terms = new Set();
+  
+  // 提取名词短语
+  doc.match('#Noun+').forEach(match => {
+    const phrase = match.text().toLowerCase();
+    if (phrase.split(' ').length <= 3) { // 最多3个词的短语
+      terms.add(phrase);
+    }
+  });
+  
+  // 提取形容词+名词组合
+  doc.match('(#Adjective+ #Noun+)').forEach(match => {
+    const phrase = match.text().toLowerCase();
+    if (phrase.split(' ').length <= 3) {
+      terms.add(phrase);
+    }
+  });
+  
+  // 定义停用词
+  const stopWords = new Set([
+    'the', 'is', 'at', 'which', 'and', 'or', 'in', 'to', 'for', 'of', 
+    'with', 'by', 'on', 'this', 'that', 'our', 'method', 'based', 
+    'towards', 'via', 'multi', 'text', 'using', 'aware', 'data', 'from',
+    'paper', 'propose', 'proposed', 'approach', 'model', 'system', 
+    'framework', 'results', 'show', 'demonstrates', 'experimental', 
+    'experiments', 'evaluation', 'performance', 'state', 'art', 'sota',
+    'dataset', 'datasets', 'task', 'tasks', 'learning', 'neural', 
+    'network', 'networks', 'deep', 'machine', 'artificial', 'intelligence', 
+    'ai', 'ml', 'dl'
+  ]);
+  
+  // 过滤停用词和短词
+  const filteredTerms = Array.from(terms).filter(term => {
+    const words = term.split(' ');
+    return words.every(word => word.length > 2) && 
+           !words.every(word => stopWords.has(word));
+  });
+  
+  // 统计词频
+  const termFreq = {};
+  filteredTerms.forEach(term => {
+    termFreq[term] = (termFreq[term] || 0) + 1;
+    // 给多词短语更高的权重
+    if (term.includes(' ')) {
+      termFreq[term] *= 1.5;
+    }
+  });
+  
+  // 计算 TF 值（词频）
+  const tfScores = {};
+  const totalTerms = Object.values(termFreq).reduce((a, b) => a + b, 0);
+  if (totalTerms > 0) {
+    Object.entries(termFreq).forEach(([term, freq]) => {
+      tfScores[term] = freq / totalTerms;
+    });
+  }
+  
+  // 按 TF 值排序并返回前10个关键词/短语
+  return Object.entries(tfScores)
+    .sort(([,a], [,b]) => b - a)
+    .slice(0, 10)
+    .map(([term]) => term);
+};
+
 async function loadPapersByDateRange(startDate, endDate) {
   // 获取日期范围内的所有有效日期
   const validDatesInRange = availableDates.filter(date => {
@@ -289,6 +410,10 @@ async function loadPapersByDateRange(startDate, endDate) {
       // 从 data 分支获取数据文件
       const dataUrl = DATA_CONFIG.getDataUrl(`data/${date}_AI_enhanced_${selectedLanguage}.jsonl`);
       const response = await fetch(dataUrl);
+      if (!response.ok) {
+        console.warn(`Data for ${date} not found, skipping.`);
+        continue;
+      }
       const text = await response.text();
       const dataPapers = parseJsonlData(text, date);
       
@@ -304,404 +429,9 @@ async function loadPapersByDateRange(startDate, endDate) {
     }
     
     paperData = allPaperData;
-
-    // 提取所有论文标题
-    const allTitle = [];
-    Object.keys(paperData).forEach(category => {
-      paperData[category].forEach(paper => {
-        allTitle.push(paper.title);
-      });
-    });
-
-    // 提取关键词并进行总结
-    const extractKeywords = (text) => {
-      // 移除特殊字符和多余空格
-      const cleanText = text.replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
-      
-      // 使用 compromise 进行文本处理
-      const doc = nlp(cleanText);
-      
-      // 提取名词短语和重要词汇
-      const terms = new Set();
-      
-      // 提取名词短语
-      doc.match('#Noun+').forEach(match => {
-        const phrase = match.text().toLowerCase();
-        if (phrase.split(' ').length <= 3) { // 最多3个词的短语
-          terms.add(phrase);
-        }
-      });
-      
-      // 提取形容词+名词组合
-      doc.match('(#Adjective+ #Noun+)').forEach(match => {
-        const phrase = match.text().toLowerCase();
-        if (phrase.split(' ').length <= 3) {
-          terms.add(phrase);
-        }
-      });
-      
-      // 定义停用词
-      const stopWords = new Set([
-        'the', 'is', 'at', 'which', 'and', 'or', 'in', 'to', 'for', 'of', 
-        'with', 'by', 'on', 'this', 'that', 'our', 'method', 'based', 
-        'towards', 'via', 'multi', 'text', 'using', 'aware', 'data', 'from',
-        'paper', 'propose', 'proposed', 'approach', 'model', 'system', 
-        'framework', 'results', 'show', 'demonstrates', 'experimental', 
-        'experiments', 'evaluation', 'performance', 'state', 'art', 'sota',
-        'dataset', 'datasets', 'task', 'tasks', 'learning', 'neural', 
-        'network', 'networks', 'deep', 'machine', 'artificial', 'intelligence', 
-        'ai', 'ml', 'dl'
-      ]);
-      
-      // 过滤停用词和短词
-      const filteredTerms = Array.from(terms).filter(term => {
-        const words = term.split(' ');
-        return words.every(word => word.length > 2) && 
-               !words.every(word => stopWords.has(word));
-      });
-      
-      // 统计词频
-      const termFreq = {};
-      filteredTerms.forEach(term => {
-        termFreq[term] = (termFreq[term] || 0) + 1;
-        // 给多词短语更高的权重
-        if (term.includes(' ')) {
-          termFreq[term] *= 1.5;
-        }
-      });
-      
-      // 计算 TF 值（词频）
-      const tfScores = {};
-      const totalTerms = Object.values(termFreq).reduce((a, b) => a + b, 0);
-      Object.entries(termFreq).forEach(([term, freq]) => {
-        tfScores[term] = freq / totalTerms;
-      });
-      
-      // 按 TF 值排序并返回前10个关键词/短语
-      return Object.entries(tfScores)
-        .sort(([,a], [,b]) => b - a)
-        .slice(0, 10)
-        .map(([term]) => term);
-    };
-
-    // 处理所有摘要
-    const allKeywords = new Map();
-    const keywordTrends = new Map(); // 添加关键词趋势数据结构
     
-    // 初始化日期数据结构
-    validDatesInRange.forEach(date => {
-      keywordTrends.set(date, new Map());
-    });
-    
-    // 按日期统计关键词
-    allTitle.forEach((abstract, index) => {
-      const date = validDatesInRange[Math.floor(index / (allTitle.length / validDatesInRange.length))];
-      const keywords = extractKeywords(abstract);
-      
-      keywords.forEach(keyword => {
-        // 更新总体统计
-        allKeywords.set(keyword, (allKeywords.get(keyword) || 0) + 1);
-        
-        // 更新日期维度统计
-        const dateStats = keywordTrends.get(date);
-        dateStats.set(keyword, (dateStats.get(keyword) || 0) + 1);
-      });
-    });
-
-    // 生成关键词云数据
-    const keywordCloudData = Array.from(allKeywords.entries())
-      .filter(([, count]) => count > 1)
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 30)
-      .map(([keyword, count]) => ({
-        text: keyword,
-        size: Math.max(12, Math.min(50, count * 3))
-      }));
-
-    // 准备折线图数据
-    const top10Keywords = keywordCloudData.slice(0, 10).map(d => d.text);
-    const trendData = top10Keywords.map(keyword => {
-      return {
-        keyword: keyword,
-        values: Array.from(keywordTrends.entries()).map(([date, stats]) => ({
-          date: new Date(date + 'T00:00:00Z'),  // 确保日期被正确解析，添加时间部分
-          count: stats.get(keyword) || 0
-        })).sort((a, b) => a.date - b.date)  // 确保数据按日期排序
-      };
-    });
-
-    // 创建可视化展示
-    container.innerHTML = `
-      <div class="statistics-section">
-        <h2>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M21.41 11.58L12.41 2.58C12.05 2.22 11.55 2 11 2H4C2.9 2 2 2.9 2 4V11C2 11.55 2.22 12.05 2.59 12.42L11.59 21.42C11.95 21.78 12.45 22 13 22C13.55 22 14.05 21.78 14.41 21.41L21.41 14.41C21.78 14.05 22 13.55 22 13C22 12.45 21.77 11.94 21.41 11.58ZM5.5 7C4.67 7 4 6.33 4 5.5C4 4.67 4.67 4 5.5 4C6.33 4 7 4.67 7 5.5C7 6.33 6.33 7 5.5 7Z" fill="currentColor"/>
-          </svg>
-          Popular Keywords
-        </h2>
-        <div class="statistics-card">
-          <div class="keyword-list">
-            ${keywordCloudData.map((item, index) => `
-              <div class="keyword-item" onclick="showRelatedPapers('${item.text}')">
-                <span class="keyword-rank">${index + 1}</span>
-                <span class="keyword-text">${item.text}</span>
-                <span class="keyword-count">${allKeywords.get(item.text)}</span>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-        
-        ${startDate !== endDate ? `
-        <h2 class="trend-title">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M3.5 18.5L9.5 12.5L13.5 16.5L22 6.92L20.59 5.5L13.5 13.5L9.5 9.5L2 17L3.5 18.5Z" fill="currentColor"/>
-          </svg>
-          Keywords Trend
-        </h2>
-        <div class="statistics-card">
-          <div id="trendChart" style="width: 100%; height: 400px;"></div>
-        </div>
-        ` : ''}
-      </div>
-    `;
-
-    // 只在日期范围模式下创建趋势图
-    if (startDate !== endDate) {
-      // 创建折线图
-      const margin = {top: 20, right: 180, bottom: 80, left: 60}; // 增加底部边距以适应更长的日期标签
-      const width = document.getElementById('trendChart').offsetWidth - margin.left - margin.right;
-      const height = 400 - margin.top - margin.bottom;
-
-      const svg = d3.select('#trendChart')
-        .append('svg')
-          .attr('width', width + margin.left + margin.right)
-          .attr('height', height + margin.top + margin.bottom)
-        .append('g')
-          .attr('transform', `translate(${margin.left},${margin.top})`);
-
-      // 设置比例尺
-      const x = d3.scaleTime()
-        .domain(d3.extent(validDatesInRange, d => new Date(d)))
-        .range([0, width]);
-
-      const y = d3.scaleLinear()
-        .domain([0, d3.max(trendData, d => d3.max(d.values, v => v.count))])
-        .range([height, 0]);
-
-      // 创建颜色比例尺，使用更柔和的颜色
-      const color = d3.scaleOrdinal()
-        .range(['#4e79a7', '#f28e2c', '#59a14f', '#e15759', '#76b7b2', 
-                '#edc949', '#af7aa1', '#ff9da7', '#9c755f', '#bab0ab']);
-
-      // 添加X轴网格线
-      svg.append('g')
-        .attr('class', 'grid')
-        .attr('transform', `translate(0,${height})`)
-        .style('stroke-dasharray', '3,3')
-        .style('opacity', 0.1)
-        .call(d3.axisBottom(x)
-          .ticks(8)
-          .tickSize(-height)
-          .tickFormat(''));
-
-      // 添加Y轴网格线
-      svg.append('g')
-        .attr('class', 'grid')
-        .style('stroke-dasharray', '3,3')
-        .style('opacity', 0.1)
-        .call(d3.axisLeft(y)
-          .tickSize(-width)
-          .tickFormat(''));
-
-      // 添加一个函数来确定合适的日期格式
-      function determineDateFormat(dates) {
-        const startDate = new Date(dates[0]);
-        const endDate = new Date(dates[dates.length - 1]);
-        
-        // 检查是否跨年
-        const sameYear = startDate.getFullYear() === endDate.getFullYear();
-        // 检查是否在同一个月
-        const sameMonth = sameYear && startDate.getMonth() === endDate.getMonth();
-        
-        if (sameMonth) {
-          return d3.timeFormat("%d"); // 只显示日
-        } else if (sameYear) {
-          return d3.timeFormat("%m-%d"); // 显示月-日
-        } else {
-          return d3.timeFormat("%Y-%m-%d"); // 显示完整日期
-        }
-      }
-
-      // 获取日期格式化函数
-      const dateFormat = determineDateFormat(validDatesInRange);
-      
-      // 添加X轴
-      svg.append('g')
-        .attr('class', 'x-axis')
-        .attr('transform', `translate(0,${height})`)
-        .call(d3.axisBottom(x)
-          .ticks(Math.min(validDatesInRange.length, 8))
-          .tickFormat(dateFormat))
-        .selectAll("text")
-        .style("text-anchor", "end")
-        .style("font-size", "12px")
-        .style("fill", "#666")
-        .attr("dx", "-.8em")
-        .attr("dy", ".15em")
-        .attr("transform", "rotate(-45)");
-
-      // 添加Y轴
-      svg.append('g')
-        .attr('class', 'y-axis')
-        .call(d3.axisLeft(y)
-          .ticks(5))
-        .selectAll("text")
-        .style("font-size", "12px")
-        .style("fill", "#666");
-
-      // 添加Y轴标题
-      svg.append("text")
-        .attr("transform", "rotate(-90)")
-        .attr("y", 0 - margin.left)
-        .attr("x", 0 - (height / 2))
-        .attr("dy", "1em")
-        .style("text-anchor", "middle")
-        .style("fill", "#666")
-        .style("font-size", "12px")
-        .text("Frequency");
-
-      // 添加X轴标题，显示年份和月份（如果被省略的话）
-      const startDate = new Date(validDatesInRange[0]);
-      const endDate = new Date(validDatesInRange[validDatesInRange.length - 1]);
-      let xAxisTitle = "";
-      
-      if (startDate.getFullYear() === endDate.getFullYear()) {
-        if (startDate.getMonth() === endDate.getMonth()) {
-          xAxisTitle = `${startDate.getFullYear()}/${String(startDate.getMonth() + 1).padStart(2, '0')}`;
-        } else {
-          xAxisTitle = `${startDate.getFullYear()}`;
-        }
-      }
-      
-      if (xAxisTitle) {
-        svg.append("text")
-          .attr("transform", `translate(${width/2}, ${height + margin.bottom - 5})`)
-          .style("text-anchor", "middle")
-          .style("fill", "#666")
-          .style("font-size", "12px")
-          .text(xAxisTitle);
-      }
-
-      // 加粗坐标轴线条
-      svg.selectAll('.x-axis path, .y-axis path, .x-axis line, .y-axis line')
-        .style('stroke', '#666')
-        .style('stroke-width', '1.5px');
-
-      // 定义面积生成器
-      const area = d3.area()
-        .x(d => x(d.date))
-        .y0(height)
-        .y1(d => y(d.count))
-        .curve(d3.curveBasis); // 使用更平滑的曲线
-
-      // 定义线条生成器
-      const line = d3.line()
-        .x(d => x(d.date))
-        .y(d => y(d.count))
-        .curve(d3.curveBasis); // 使用相同的平滑曲线
-
-      // 添加渐变定义
-      const gradient = svg.append("defs")
-        .selectAll("linearGradient")
-        .data(trendData)
-        .enter()
-        .append("linearGradient")
-        .attr("id", (d, i) => `gradient-${i}`)
-        .attr("x1", "0%")
-        .attr("y1", "0%")
-        .attr("x2", "0%")
-        .attr("y2", "100%");
-
-      gradient.append("stop")
-        .attr("offset", "0%")
-        .attr("stop-color", d => color(d.keyword))
-        .attr("stop-opacity", 0.3);
-
-      gradient.append("stop")
-        .attr("offset", "100%")
-        .attr("stop-color", d => color(d.keyword))
-        .attr("stop-opacity", 0.05);
-
-      // 绘制面积
-      const areas = svg.selectAll('.area')
-        .data(trendData)
-        .enter()
-        .append('path')
-          .attr('class', 'area')
-          .attr('d', d => area(d.values))
-          .style('fill', (d, i) => `url(#gradient-${i})`)
-          .style('opacity', 0.7);
-
-      // 绘制折线
-      const paths = svg.selectAll('.line')
-        .data(trendData)
-        .enter()
-        .append('path')
-          .attr('class', 'line')
-          .attr('d', d => line(d.values))
-          .style('stroke', d => color(d.keyword))
-          .style('fill', 'none')
-          .style('stroke-width', 2)
-          .style('opacity', 0.8);
-
-      // 添加图例
-      const legend = svg.selectAll('.legend')
-        .data(trendData)
-        .enter()
-        .append('g')
-          .attr('class', 'legend')
-          .attr('transform', (d, i) => `translate(${width + 20},${i * 25})`);
-
-      legend.append('rect')
-        .attr('x', 0)
-        .attr('width', 18)
-        .attr('height', 18)
-        .style('fill', d => color(d.keyword))
-        .style('opacity', 0.7);
-
-      legend.append('text')
-        .attr('x', 28)
-        .attr('y', 13)
-        .text(d => d.keyword)
-        .style('font-size', '12px')
-        .style('alignment-baseline', 'middle');
-
-      // 添加交互效果
-      legend.style('cursor', 'pointer')
-        .on('mouseover', function(event, d) {
-          const keyword = d.keyword;
-          
-          // 降低其他线条和区域的透明度
-          areas.style('opacity', 0.1);
-          paths.style('opacity', 0.1);
-          
-          // 高亮当前选中的线条和区域
-          svg.selectAll('.area')
-            .filter(p => p.keyword === keyword)
-            .style('opacity', 0.9);
-          
-          svg.selectAll('.line')
-            .filter(p => p.keyword === keyword)
-            .style('opacity', 1)
-            .style('stroke-width', 3);
-        })
-        .on('mouseout', function() {
-          // 恢复原始状态
-          areas.style('opacity', 0.7);
-          paths.style('opacity', 0.8)
-            .style('stroke-width', 2);
-        });
-    }
+    // 渲染 Category tabs 并展示统计信息
+    renderCategoryTabs(validDatesInRange);
     
   } catch (error) {
     console.error('加载论文数据失败:', error);
@@ -712,6 +442,433 @@ async function loadPapersByDateRange(startDate, endDate) {
       </div>
     `;
   }
+}
+
+function renderCategoryTabs(validDatesInRange) {
+  const container = document.getElementById('papersList');
+  
+  // 1. 收集所有包含的类别 (基于 primaryCategory 或者是 paper.category 集合)
+  const categoriesSet = new Set();
+  allPapersData.forEach(paper => {
+    if (paper.category) {
+      paper.category.forEach(cat => categoriesSet.add(cat));
+    }
+  });
+  
+  // 过滤一些空白或无效的分类并排序
+  const availableCategories = Array.from(categoriesSet)
+    .filter(cat => cat && cat.trim().length > 0)
+    .sort();
+  
+  // 2. 生成 HTML 结构
+  container.innerHTML = `
+    <div class="category-filter-wrapper">
+      <div class="category-filter-title">选择论文分类 / Select Category</div>
+      <div class="category-tabs" id="categoryTabs">
+        <button class="category-tab active" data-category="All">
+          <span class="tab-name">All Categories (全部)</span>
+          <span class="tab-count">${allPapersData.length}</span>
+        </button>
+        ${availableCategories.map(cat => {
+          const papersInCat = allPapersData.filter(paper => paper.category.includes(cat));
+          const displayName = CATEGORY_NAMES[cat] || cat;
+          return `
+            <button class="category-tab" data-category="${cat}">
+              <span class="tab-name">${displayName}</span>
+              <span class="tab-count">${papersInCat.length}</span>
+            </button>
+          `;
+        }).join('')}
+      </div>
+    </div>
+    <div id="categoryStatsContent" class="category-stats-content">
+      <!-- 动态统计内容渲染在这里 -->
+    </div>
+  `;
+
+  // 3. 绑定 Tab 点击事件
+  const tabs = document.querySelectorAll('.category-tab');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', (e) => {
+      const target = e.currentTarget;
+      tabs.forEach(t => t.classList.remove('active'));
+      target.classList.add('active');
+      
+      selectedCategory = target.getAttribute('data-category');
+      renderCategoryStats(selectedCategory, validDatesInRange);
+    });
+  });
+
+  // 4. 默认首次渲染 "All" 分类
+  selectedCategory = 'All';
+  renderCategoryStats('All', validDatesInRange);
+}
+
+function renderCategoryStats(category, validDatesInRange) {
+  const statsContainer = document.getElementById('categoryStatsContent');
+  if (!statsContainer) return;
+  
+  const filteredPapers = category === 'All' 
+    ? allPapersData 
+    : allPapersData.filter(paper => paper.category.includes(category));
+    
+  if (filteredPapers.length === 0) {
+    statsContainer.innerHTML = `
+      <div class="no-data">
+        <p>当前分类下暂无论文数据 / No papers in this category.</p>
+      </div>
+    `;
+    return;
+  }
+  
+  // 按日期统计关键词
+  const allKeywords = new Map();
+  const keywordTrends = new Map();
+  
+  validDatesInRange.forEach(date => {
+    keywordTrends.set(date, new Map());
+  });
+  
+  filteredPapers.forEach(paper => {
+    const paperDate = paper.date;
+    if (!keywordTrends.has(paperDate)) {
+      return;
+    }
+    
+    const keywords = extractKeywords(paper.title);
+    keywords.forEach(keyword => {
+      allKeywords.set(keyword, (allKeywords.get(keyword) || 0) + 1);
+      const dateStats = keywordTrends.get(paperDate);
+      dateStats.set(keyword, (dateStats.get(keyword) || 0) + 1);
+    });
+  });
+  
+  // 过滤并排序关键词频次
+  const keywordCloudData = Array.from(allKeywords.entries())
+    .filter(([, count]) => count > 0)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 30)
+    .map(([keyword, count]) => ({
+      text: keyword,
+      size: Math.max(12, Math.min(50, count * 3))
+    }));
+    
+  // 准备折线图数据（排前10的关键词）
+  const top10Keywords = keywordCloudData.slice(0, 10).map(d => d.text);
+  const trendData = top10Keywords.map(keyword => {
+    return {
+      keyword: keyword,
+      values: Array.from(keywordTrends.entries()).map(([date, stats]) => ({
+        date: new Date(date + 'T00:00:00Z'),
+        count: stats.get(keyword) || 0
+      })).sort((a, b) => a.date - b.date)
+    };
+  });
+  
+  const categoryDisplayName = category === 'All' ? 'All Categories (全部)' : (CATEGORY_NAMES[category] || category);
+  const hasMultipleDates = validDatesInRange.length > 1;
+  
+  statsContainer.innerHTML = `
+    <div class="statistics-section">
+      <h2>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M21.41 11.58L12.41 2.58C12.05 2.22 11.55 2 11 2H4C2.9 2 2 2.9 2 4V11C2 11.55 2.22 12.05 2.59 12.42L11.59 21.42C11.95 21.78 12.45 22 13 22C13.55 22 14.05 21.78 14.41 21.41L21.41 14.41C21.78 14.05 22 13.55 22 13C22 12.45 21.77 11.94 21.41 11.58ZM5.5 7C4.67 7 4 6.33 4 5.5C4 4.67 4.67 4 5.5 4C6.33 4 7 4.67 7 5.5C7 6.33 6.33 7 5.5 7Z" fill="currentColor"/>
+        </svg>
+        热门关键词 - ${categoryDisplayName}
+      </h2>
+      <div class="statistics-card">
+        <div class="keyword-list">
+          ${keywordCloudData.length > 0 ? keywordCloudData.map((item, index) => `
+            <div class="keyword-item" onclick="showRelatedPapers('${item.text}')">
+              <span class="keyword-rank">${index + 1}</span>
+              <span class="keyword-text">${item.text}</span>
+              <span class="keyword-count">${allKeywords.get(item.text)}</span>
+            </div>
+          `).join('') : '<p class="no-data">当前分类暂无热门关键词 / No keywords found.</p>'}
+        </div>
+      </div>
+      
+      ${hasMultipleDates && top10Keywords.length > 0 ? `
+        <h2 class="trend-title">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3.5 18.5L9.5 12.5L13.5 16.5L22 6.92L20.59 5.5L13.5 13.5L9.5 9.5L2 17L3.5 18.5Z" fill="currentColor"/>
+          </svg>
+          关键词变化趋势 - ${categoryDisplayName}
+        </h2>
+        <div class="statistics-card">
+          <div id="trendChart" style="width: 100%; height: 400px;"></div>
+        </div>
+      ` : ''}
+    </div>
+  `;
+  
+  // 只有在有多个日期和关键词时才绘制图表
+  if (hasMultipleDates && top10Keywords.length > 0) {
+    // 使用 setTimeout 确保 DOM 已经完全渲染并能够获取元素宽度
+    setTimeout(() => {
+      drawTrendChart(trendData, validDatesInRange);
+    }, 50);
+  }
+}
+
+function drawTrendChart(trendData, validDatesInRange) {
+  const chartElement = document.getElementById('trendChart');
+  if (!chartElement) return;
+
+  const margin = {top: 20, right: 180, bottom: 80, left: 60};
+  const width = chartElement.offsetWidth - margin.left - margin.right;
+  const height = 400 - margin.top - margin.bottom;
+
+  // 清除旧的 SVG
+  chartElement.innerHTML = '';
+
+  const svg = d3.select('#trendChart')
+    .append('svg')
+      .attr('width', width + margin.left + margin.right)
+      .attr('height', height + margin.top + margin.bottom)
+    .append('g')
+      .attr('transform', `translate(${margin.left},${margin.top})`);
+
+  // 设置比例尺
+  const x = d3.scaleTime()
+    .domain(d3.extent(validDatesInRange, d => new Date(d)))
+    .range([0, width]);
+
+  const y = d3.scaleLinear()
+    .domain([0, d3.max(trendData, d => d3.max(d.values, v => v.count))])
+    .nice()
+    .range([height, 0]);
+
+  // 创建颜色比例尺，使用更柔和的颜色
+  const color = d3.scaleOrdinal()
+    .range(['#4e79a7', '#f28e2c', '#59a14f', '#e15759', '#76b7b2', 
+            '#edc949', '#af7aa1', '#ff9da7', '#9c755f', '#bab0ab']);
+
+  // 添加X轴网格线
+  svg.append('g')
+    .attr('class', 'grid')
+    .attr('transform', `translate(0,${height})`)
+    .style('stroke-dasharray', '3,3')
+    .style('opacity', 0.1)
+    .call(d3.axisBottom(x)
+      .ticks(8)
+      .tickSize(-height)
+      .tickFormat(''));
+
+  // 添加Y轴网格线
+  svg.append('g')
+    .attr('class', 'grid')
+    .style('stroke-dasharray', '3,3')
+    .style('opacity', 0.1)
+    .call(d3.axisLeft(y)
+      .tickSize(-width)
+      .tickFormat(''));
+
+  // 确定合适的日期格式
+  function determineDateFormat(dates) {
+    const startDate = new Date(dates[0]);
+    const endDate = new Date(dates[dates.length - 1]);
+    
+    const sameYear = startDate.getFullYear() === endDate.getFullYear();
+    const sameMonth = sameYear && startDate.getMonth() === endDate.getMonth();
+    
+    if (sameMonth) {
+      return d3.timeFormat("%d");
+    } else if (sameYear) {
+      return d3.timeFormat("%m-%d");
+    } else {
+      return d3.timeFormat("%Y-%m-%d");
+    }
+  }
+
+  const dateFormat = determineDateFormat(validDatesInRange);
+  
+  // 添加X轴
+  svg.append('g')
+    .attr('class', 'x-axis')
+    .attr('transform', `translate(0,${height})`)
+    .call(d3.axisBottom(x)
+      .ticks(Math.min(validDatesInRange.length, 8))
+      .tickFormat(dateFormat))
+    .selectAll("text")
+    .style("text-anchor", "end")
+    .style("font-size", "11px")
+    .style("fill", "#666")
+    .attr("dx", "-.8em")
+    .attr("dy", ".15em")
+    .attr("transform", "rotate(-45)");
+
+  // 添加Y轴
+  svg.append('g')
+    .attr('class', 'y-axis')
+    .call(d3.axisLeft(y)
+      .ticks(5))
+    .selectAll("text")
+    .style("font-size", "11px")
+    .style("fill", "#666");
+
+  // 添加Y轴标题
+  svg.append("text")
+    .attr("transform", "rotate(-90)")
+    .attr("y", 0 - margin.left)
+    .attr("x", 0 - (height / 2))
+    .attr("dy", "1em")
+    .style("text-anchor", "middle")
+    .style("fill", "#666")
+    .style("font-size", "11px")
+    .text("出现频次 (Frequency)");
+
+  // 添加X轴标题
+  const startDate = new Date(validDatesInRange[0]);
+  const endDate = new Date(validDatesInRange[validDatesInRange.length - 1]);
+  let xAxisTitle = "";
+  
+  if (startDate.getFullYear() === endDate.getFullYear()) {
+    if (startDate.getMonth() === endDate.getMonth()) {
+      xAxisTitle = `${startDate.getFullYear()}/${String(startDate.getMonth() + 1).padStart(2, '0')}`;
+    } else {
+      xAxisTitle = `${startDate.getFullYear()}`;
+    }
+  }
+  
+  if (xAxisTitle) {
+    svg.append("text")
+      .attr("transform", `translate(${width/2}, ${height + margin.bottom - 5})`)
+      .style("text-anchor", "middle")
+      .style("fill", "#666")
+      .style("font-size", "12px")
+      .text(xAxisTitle);
+  }
+
+  svg.selectAll('.x-axis path, .y-axis path, .x-axis line, .y-axis line')
+    .style('stroke', '#ccc')
+    .style('stroke-width', '1px');
+
+  // 定义面积生成器
+  const area = d3.area()
+    .x(d => x(d.date))
+    .y0(height)
+    .y1(d => y(d.count))
+    .curve(d3.curveMonotoneX);
+
+  // 定义线条生成器
+  const line = d3.line()
+    .x(d => x(d.date))
+    .y(d => y(d.count))
+    .curve(d3.curveMonotoneX);
+
+  // 添加渐变定义
+  const gradient = svg.append("defs")
+    .selectAll("linearGradient")
+    .data(trendData)
+    .enter()
+    .append("linearGradient")
+    .attr("id", (d, i) => `gradient-${i}`)
+    .attr("x1", "0%")
+    .attr("y1", "0%")
+    .attr("x2", "0%")
+    .attr("y2", "100%");
+
+  gradient.append("stop")
+    .attr("offset", "0%")
+    .attr("stop-color", d => color(d.keyword))
+    .attr("stop-opacity", 0.25);
+
+  gradient.append("stop")
+    .attr("offset", "100%")
+    .attr("stop-color", d => color(d.keyword))
+    .attr("stop-opacity", 0.01);
+
+  // 绘制面积
+  const areas = svg.selectAll('.area')
+    .data(trendData)
+    .enter()
+    .append('path')
+      .attr('class', 'area')
+      .attr('d', d => area(d.values))
+      .style('fill', (d, i) => `url(#gradient-${i})`)
+      .style('opacity', 0.6);
+
+  // 绘制折线
+  const paths = svg.selectAll('.line')
+    .data(trendData)
+    .enter()
+    .append('path')
+      .attr('class', 'line')
+      .attr('d', d => line(d.values))
+      .style('stroke', d => color(d.keyword))
+      .style('fill', 'none')
+      .style('stroke-width', 2.5)
+      .style('opacity', 0.85);
+
+  // 绘制折线节点圆点，增加细节感
+  const dotsG = svg.append('g').attr('class', 'dots-group');
+  trendData.forEach((d, i) => {
+    dotsG.selectAll(`.dot-${i}`)
+      .data(d.values)
+      .enter()
+      .append('circle')
+        .attr('class', `dot dot-${i}`)
+        .attr('cx', v => x(v.date))
+        .attr('cy', v => y(v.count))
+        .attr('r', 3)
+        .style('fill', color(d.keyword))
+        .style('opacity', 0)
+        .style('transition', 'opacity 0.2s ease');
+  });
+
+  // 添加图例
+  const legend = svg.selectAll('.legend')
+    .data(trendData)
+    .enter()
+    .append('g')
+      .attr('class', 'legend')
+      .attr('transform', (d, i) => `translate(${width + 20},${i * 24})`);
+
+  legend.append('rect')
+    .attr('x', 0)
+    .attr('width', 16)
+    .attr('height', 16)
+    .attr('rx', 3)
+    .style('fill', d => color(d.keyword))
+    .style('opacity', 0.8);
+
+  legend.append('text')
+    .attr('x', 24)
+    .attr('y', 11)
+    .text(d => d.keyword)
+    .style('font-size', '12px')
+    .style('font-weight', '500')
+    .style('alignment-baseline', 'middle')
+    .style('fill', '#333');
+
+  // 添加交互效果
+  legend.style('cursor', 'pointer')
+    .on('mouseover', function(event, d) {
+      const keyword = d.keyword;
+      const targetIndex = trendData.findIndex(item => item.keyword === keyword);
+      
+      areas.style('opacity', 0.05);
+      paths.style('opacity', 0.1);
+      svg.selectAll('.dot').style('opacity', 0);
+      
+      svg.selectAll('.area')
+        .filter(p => p.keyword === keyword)
+        .style('opacity', 0.85);
+      
+      svg.selectAll('.line')
+        .filter(p => p.keyword === keyword)
+        .style('opacity', 1)
+        .style('stroke-width', 3.5);
+
+      svg.selectAll(`.dot-${targetIndex}`)
+        .style('opacity', 1)
+        .attr('r', 4.5);
+    })
+    .on('mouseout', function() {
+      areas.style('opacity', 0.6);
+      paths.style('opacity', 0.85).style('stroke-width', 2.5);
+      svg.selectAll('.dot').style('opacity', 0).attr('r', 3);
 }
 
 function parseJsonlData(jsonlText, date) {
@@ -749,7 +906,8 @@ function parseJsonlData(jsonlText, date) {
         motivation: paper.AI && paper.AI.motivation ? paper.AI.motivation : '',
         method: paper.AI && paper.AI.method ? paper.AI.method : '',
         result: paper.AI && paper.AI.result ? paper.AI.result : '',
-        conclusion: paper.AI && paper.AI.conclusion ? paper.AI.conclusion : ''
+        conclusion: paper.AI && paper.AI.conclusion ? paper.AI.conclusion : '',
+        remote_sensing_cross: paper.AI && paper.AI.remote_sensing_cross ? paper.AI.remote_sensing_cross : ''
       });
     } catch (error) {
       console.error('解析JSON行失败:', error, line);

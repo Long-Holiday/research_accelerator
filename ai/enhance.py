@@ -121,7 +121,8 @@ def process_single_item(chain, item: Dict, language: str) -> Dict:
         "motivation": "Motivation analysis unavailable",
         "method": "Method extraction failed",
         "result": "Result analysis unavailable",
-        "conclusion": "Conclusion extraction failed"
+        "conclusion": "Conclusion extraction failed",
+        "remote_sensing_cross": "Remote sensing cross-disciplinary scheme unavailable"
     }
     
     try:
@@ -209,7 +210,8 @@ def process_all_items(data: List[Dict], model_name: str, language: str, max_work
                     "motivation": "Processing failed",
                     "method": "Processing failed",
                     "result": "Processing failed",
-                    "conclusion": "Processing failed"
+                    "conclusion": "Processing failed",
+                    "remote_sensing_cross": "Processing failed"
                 }
     
     return processed_data

@@ -930,6 +930,7 @@ function parseJsonlData(jsonlText, date) {
         method: paper.AI && paper.AI.method ? paper.AI.method : '',
         result: paper.AI && paper.AI.result ? paper.AI.result : '',
         conclusion: paper.AI && paper.AI.conclusion ? paper.AI.conclusion : '',
+        remote_sensing_cross: paper.AI && paper.AI.remote_sensing_cross ? paper.AI.remote_sensing_cross : '',
         code_url: paper.code_url || '',
         code_stars: paper.code_stars || 0,
         code_last_update: paper.code_last_update || ''
@@ -1135,7 +1136,8 @@ function renderPapers() {
         a.motivation || '',
         a.method || '',
         a.result || '',
-        a.conclusion || ''
+        a.conclusion || '',
+        a.remote_sensing_cross || ''
       ].join(' ').toLowerCase();
       const hayB = [
         b.title,
@@ -1146,7 +1148,8 @@ function renderPapers() {
         b.motivation || '',
         b.method || '',
         b.result || '',
-        b.conclusion || ''
+        b.conclusion || '',
+        b.remote_sensing_cross || ''
       ].join(' ').toLowerCase();
       const am = hayA.includes(q);
       const bm = hayB.includes(q);
@@ -1166,7 +1169,8 @@ function renderPapers() {
         p.motivation || '',
         p.method || '',
         p.result || '',
-        p.conclusion || ''
+        p.conclusion || '',
+        p.remote_sensing_cross || ''
       ].join(' ').toLowerCase();
       const matched = hay.includes(q);
       p.isMatched = matched;
@@ -1493,6 +1497,10 @@ function showPaperDetails(paper, paperIndex) {
     ? highlightMatches(paper.conclusion, modalTitleTerms, 'keyword-highlight') 
     : paper.conclusion;
   
+  const highlightedRemoteSensingCross = paper.remote_sensing_cross && modalTitleTerms.length > 0 
+    ? highlightMatches(paper.remote_sensing_cross, modalTitleTerms, 'keyword-highlight') 
+    : paper.remote_sensing_cross;
+  
   // 判断是否需要显示高亮说明
   const showHighlightLegend = activeKeywords.length > 0 || activeAuthors.length > 0;
   
@@ -1514,6 +1522,7 @@ function showPaperDetails(paper, paperIndex) {
         ${paper.method ? `<div class="paper-section"><h4>Method</h4><p>${highlightedMethod}</p></div>` : ''}
         ${paper.result ? `<div class="paper-section"><h4>Result</h4><p>${highlightedResult}</p></div>` : ''}
         ${paper.conclusion ? `<div class="paper-section"><h4>Conclusion</h4><p>${highlightedConclusion}</p></div>` : ''}
+        ${paper.remote_sensing_cross ? `<div class="paper-section"><h4>与遥感交叉方案</h4><p>${highlightedRemoteSensingCross}</p></div>` : ''}
       </div>
       
       ${highlightedAbstract ? `<h3>Abstract</h3><p class="original-abstract">${highlightedAbstract}</p>` : ''}
