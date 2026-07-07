@@ -97,8 +97,7 @@ def process_single_item(chain, item: Dict, language: str) -> Dict:
         "method": "Method extraction failed",
         "result": "Result analysis unavailable",
         "conclusion": "Conclusion extraction failed",
-        "remote_sensing_cross": "Remote sensing cross-disciplinary scheme unavailable",
-        "abstract_zh": "Abstract translation unavailable"
+        "remote_sensing_cross": "Remote sensing cross-disciplinary scheme unavailable"
     }
     
     try:
@@ -184,8 +183,7 @@ def process_all_items(data: List[Dict], model_name: str, language: str, max_work
                     "method": "Processing failed",
                     "result": "Processing failed",
                     "conclusion": "Processing failed",
-                    "remote_sensing_cross": "Processing failed",
-                    "abstract_zh": "Processing failed"
+                    "remote_sensing_cross": "Processing failed"
                 }
     
     return processed_data
@@ -203,7 +201,7 @@ def main():
 
     # 读取数据
     data = []
-    with open(args.data, "r") as f:
+    with open(args.data, "r", encoding="utf-8") as f:
         for line in f:
             data.append(json.loads(line))
 
@@ -227,10 +225,10 @@ def main():
     )
     
     # 保存结果
-    with open(target_file, "w") as f:
+    with open(target_file, "w", encoding="utf-8") as f:
         for item in processed_data:
             if item is not None:
-                f.write(json.dumps(item) + "\n")
+                f.write(json.dumps(item, ensure_ascii=False) + "\n")
 
 if __name__ == "__main__":
     main()

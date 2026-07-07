@@ -10,7 +10,6 @@ class Structure(BaseModel):
     remote_sensing_cross: str = Field(
         description="与遥感交叉或者改进方案。如果本身就是遥感论文，给出有哪些可以改进的地方（改进方案）；如果是其他学科的论文，给出与遥感交叉的具体方案。开头第一句必须先给出可行性百分比，格式为：交叉/改进可行性：XX%。，后面再给出具体方案。"
     )
-    abstract_zh: str = Field(description="将原始的 abstract (英文摘要) 提炼翻译为 150 字以内的专业学术中文精简版")
 
     @field_validator("remote_sensing_cross")
     @classmethod

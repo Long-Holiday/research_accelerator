@@ -931,7 +931,6 @@ function parseJsonlData(jsonlText, date) {
         result: paper.AI && paper.AI.result ? paper.AI.result : '',
         conclusion: paper.AI && paper.AI.conclusion ? paper.AI.conclusion : '',
         remote_sensing_cross: paper.AI && paper.AI.remote_sensing_cross ? paper.AI.remote_sensing_cross : '',
-        abstract_zh: paper.AI && paper.AI.abstract_zh ? paper.AI.abstract_zh : '',
         code_url: paper.code_url || '',
         code_stars: paper.code_stars || 0,
         code_last_update: paper.code_last_update || ''
