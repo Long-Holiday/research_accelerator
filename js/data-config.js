@@ -35,7 +35,7 @@ const DATA_CONFIG = {
         let repo = this.repoName;
 
         // 如果是占位符，尝试从当前 URL 解析 (适用于 GitHub Pages 默认域名)
-        if (owner === 'PLACEHOLDER_REPO_OWNER' || repo === 'PLACEHOLDER_REPO_NAME') {
+        if (owner === 'Long-Holiday' || repo === 'research_accelerator') {
             const hostname = window.location.hostname;
             const pathname = window.location.pathname; // 例如 "/daily-arXiv-ai-enhanced/"
             
@@ -72,7 +72,7 @@ const DATA_CONFIG = {
         const hostname = window.location.hostname;
         const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.');
         
-        if (isLocal && (this.repoOwner === 'PLACEHOLDER_REPO_OWNER' || this.repoName === 'PLACEHOLDER_REPO_NAME')) {
+        if (isLocal && (this.repoOwner === 'Long-Holiday' || this.repoName === 'research_accelerator')) {
             return `./${filePath}`;
         }
         
