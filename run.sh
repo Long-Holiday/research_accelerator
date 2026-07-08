@@ -52,6 +52,8 @@ else
     echo "   OPENAI_BASE_URL: $OPENAI_BASE_URL"
 fi
 
+export OPENALEX_API_KEY="${OPENALEX_API_KEY:-}"
+
 echo ""
 echo "=== 开始本地调试流程 / Starting Local Debug Workflow ==="
 
@@ -86,8 +88,8 @@ if [ ! -f "../data/${today}.jsonl" ]; then
     exit 1
 fi
 
-# 爬取 OpenAlex 期刊论文并追加到数据文件中 / Crawl OpenAlex journal papers and append to the data file
-echo "开始爬取 OpenAlex 期刊论文... / Starting to crawl OpenAlex journal papers..."
+# 查询 OpenAlex 期刊论文并追加到数据文件中 / Query OpenAlex journal papers and append to the data file
+echo "开始查询 OpenAlex 期刊论文... / Starting to query OpenAlex journal papers..."
 python crawl_openalex.py --date ${today} --output ../data/${today}.jsonl
 
 # 第二步：检查去重 / Step 2: Check duplicates  
