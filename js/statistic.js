@@ -6,22 +6,7 @@ let isRangeMode = true;
 let allPapersData = [];
 let selectedCategory = 'All';
 
-const CATEGORY_NAMES = {
-  'cs.CV': '计算机视觉 (Computer Vision)',
-  'cs.CL': '自然语言处理 (Natural Language Processing)',
-  'cs.LG': '机器学习 (Machine Learning)',
-  'cs.AI': '人工智能 (Artificial Intelligence)',
-  'cs.NE': '神经网络 (Neural Computing)',
-  'cs.RO': '机器人 (Robotics)',
-  'cs.IR': '信息检索 (Information Retrieval)',
-  'cs.HC': '人机交互 (Human-Computer Interaction)',
-  'cs.CY': '计算与社会 (Computers and Society)',
-  'cs.CR': '加密与安全 (Cryptography and Security)',
-  'cs.DS': '数据结构与算法 (Data Structures)',
-  'cs.DB': '数据库 (Databases)',
-  'cs.SE': '软件工程 (Software Engineering)',
-  'cs.MA': '多智能体系统 (Multiagent Systems)'
-};
+// Categories names are displayed directly from data keys to match the main page
 
 document.addEventListener('DOMContentLoaded', () => {
   // Check screen size
@@ -511,7 +496,7 @@ function renderCategoryTabs(validDatesInRange) {
         </button>
         ${availableCategories.map(cat => {
           const papersInCat = allPapersData.filter(paper => paper.category.includes(cat));
-          const displayName = CATEGORY_NAMES[cat] || cat;
+          const displayName = cat;
           return `
             <button class="category-tab" data-category="${cat}">
               <span class="tab-name">${displayName}</span>
@@ -605,7 +590,7 @@ function renderCategoryStats(category, validDatesInRange) {
     };
   });
   
-  const categoryDisplayName = category === 'All' ? 'All Categories (全部)' : (CATEGORY_NAMES[category] || category);
+  const categoryDisplayName = category === 'All' ? 'All Categories (全部)' : category;
   const hasMultipleDates = validDatesInRange.length > 1;
   
   statsContainer.innerHTML = `
