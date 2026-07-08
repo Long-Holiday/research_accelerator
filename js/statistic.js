@@ -316,30 +316,56 @@ function toggleRangeMode() {
 
 // 提取关键词并进行总结
 const extractKeywords = (text) => {
+  if (!text || typeof text !== 'string') return [];
+  
+  // 检查 nlp 是否定义以防止加载失败崩溃
+  if (typeof nlp === 'undefined') {
+    console.warn('compromise library (nlp) is not defined, using fallback keyword extraction.');
+    return text.toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length > 3 && !['with', 'from', 'that', 'this', 'learning', 'neural', 'network', 'model', 'data', 'using', 'based'].includes(w))
+      .slice(0, 10);
+  }
+
   // 移除特殊字符和多余空格
   const cleanText = text.replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
   
   // 使用 compromise 进行文本处理
-  const doc = nlp(cleanText);
+  let doc;
+  try {
+    doc = nlp(cleanText);
+  } catch (err) {
+    console.error('nlp parsing failed:', err);
+    return [];
+  }
   
   // 提取名词短语和重要词汇
   const terms = new Set();
   
   // 提取名词短语
-  doc.match('#Noun+').forEach(match => {
-    const phrase = match.text().toLowerCase();
-    if (phrase.split(' ').length <= 3) { // 最多3个词的短语
-      terms.add(phrase);
-    }
-  });
+  try {
+    doc.match('#Noun+').forEach(match => {
+      const phrase = match.text().toLowerCase();
+      if (phrase.split(' ').length <= 3) { // 最多3个词的短语
+        terms.add(phrase);
+      }
+    });
+  } catch (err) {
+    console.error('doc.match(#Noun+) iteration failed:', err);
+  }
   
   // 提取形容词+名词组合
-  doc.match('(#Adjective+ #Noun+)').forEach(match => {
-    const phrase = match.text().toLowerCase();
-    if (phrase.split(' ').length <= 3) {
-      terms.add(phrase);
-    }
-  });
+  try {
+    doc.match('(#Adjective+ #Noun+)').forEach(match => {
+      const phrase = match.text().toLowerCase();
+      if (phrase.split(' ').length <= 3) {
+        terms.add(phrase);
+      }
+    });
+  } catch (err) {
+    console.error('doc.match(#Adjective+ #Noun+) iteration failed:', err);
+  }
   
   // 定义停用词
   const stopWords = new Set([
@@ -629,8 +655,14 @@ function drawTrendChart(trendData, validDatesInRange) {
   const chartElement = document.getElementById('trendChart');
   if (!chartElement) return;
 
+  if (typeof d3 === 'undefined') {
+    console.error('D3 is not defined, skipping trend chart rendering.');
+    chartElement.innerHTML = '<p class="no-data" style="text-align: center; padding: 20px;">图表库 (D3) 加载失败，无法渲染趋势图 / Chart library failed to load.</p>';
+    return;
+  }
+
   const margin = {top: 20, right: 180, bottom: 80, left: 60};
-  const width = chartElement.offsetWidth - margin.left - margin.right;
+  const width = Math.max(100, chartElement.offsetWidth - margin.left - margin.right);
   const height = 400 - margin.top - margin.bottom;
 
   // 清除旧的 SVG
@@ -883,7 +915,9 @@ function drawTrendChart(trendData, validDatesInRange) {
       areas.style('opacity', 0.6);
       paths.style('opacity', 0.85).style('stroke-width', 2.5);
       svg.selectAll('.dot').style('opacity', 0).attr('r', 3);
+    });
 }
+
 
 function parseJsonlData(jsonlText, date) {
   const result = {};
