@@ -60,7 +60,7 @@ jobs:
         # 查询 OpenAlex 期刊论文并追加到数据文件中
         # Query OpenAlex journal papers and append to the data file
         echo "开始查询 OpenAlex 期刊论文... / Starting to query OpenAlex journal papers..."
-        export OPENALEX_API_KEY="${{ vars.OPENALEX_API_KEY }}"
+        export OPENALEX_API_KEY="${{ secrets.OPENALEX_API_KEY }}"
         python crawl_openalex.py --date $today --output ../data/${today}.jsonl
         
         echo "crawl_date=$today" >> $GITHUB_OUTPUT
