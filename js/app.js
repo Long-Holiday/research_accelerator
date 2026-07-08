@@ -680,19 +680,33 @@ function selectLanguageForDate(date, preferredLanguage = null) {
   const availableLanguages = window.dateLanguageMap?.get(date) || [];
   
   if (availableLanguages.length === 0) {
-    return 'Chinese'; // fallback
+    return 'zh'; // fallback
   }
   
   // Use provided preference or detect from browser
   const preferred = preferredLanguage || getPreferredLanguage();
   
+  // 如果首选是 Chinese，优先尝试匹配 'zh' 或 'Chinese'
+  if (preferred === 'Chinese') {
+    if (availableLanguages.includes('zh')) return 'zh';
+    if (availableLanguages.includes('Chinese')) return 'Chinese';
+  }
+  
+  // 如果首选是 English，优先尝试匹配 'en' 或 'English'
+  if (preferred === 'English') {
+    if (availableLanguages.includes('en')) return 'en';
+    if (availableLanguages.includes('English')) return 'English';
+  }
+
   // If preferred language is available, use it
   if (availableLanguages.includes(preferred)) {
     return preferred;
   }
   
-  // Fallback: prefer Chinese if available, otherwise use the first available
-  return availableLanguages.includes('Chinese') ? 'Chinese' : availableLanguages[0];
+  // Fallback: prefer Chinese/zh if available, otherwise use the first available
+  if (availableLanguages.includes('zh')) return 'zh';
+  if (availableLanguages.includes('Chinese')) return 'Chinese';
+  return availableLanguages[0];
 }
 
 async function fetchAvailableDates() {
@@ -707,7 +721,7 @@ async function fetchAvailableDates() {
     const text = await response.text();
     const files = text.trim().split('\n');
 
-    const dateRegex = /(\d{4}-\d{2}-\d{2})_AI_enhanced_(English|Chinese)\.jsonl/;
+    const dateRegex = /(\d{4}-\d{2}-\d{2})_AI_enhanced_([a-zA-Z]+)\.jsonl/;
     const dateLanguageMap = new Map(); // Store date -> available languages
     const dates = [];
     
