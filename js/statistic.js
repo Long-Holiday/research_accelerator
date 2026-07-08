@@ -472,11 +472,11 @@ async function loadPapersByDateRange(startDate, endDate) {
 function renderCategoryTabs(validDatesInRange) {
   const container = document.getElementById('papersList');
   
-  // 1. 收集所有包含的类别 (基于 primaryCategory 或者是 paper.category 集合)
+  // 1. 收集所有包含的类别 (仅基于主分类 primaryCategory)
   const categoriesSet = new Set();
   allPapersData.forEach(paper => {
-    if (paper.category) {
-      paper.category.forEach(cat => categoriesSet.add(cat));
+    if (paper.category && paper.category.length > 0) {
+      categoriesSet.add(paper.category[0]);
     }
   });
   
@@ -495,7 +495,7 @@ function renderCategoryTabs(validDatesInRange) {
           <span class="tab-count">${allPapersData.length}</span>
         </button>
         ${availableCategories.map(cat => {
-          const papersInCat = allPapersData.filter(paper => paper.category.includes(cat));
+          const papersInCat = allPapersData.filter(paper => paper.category && paper.category[0] === cat);
           const displayName = cat;
           return `
             <button class="category-tab" data-category="${cat}">
@@ -535,7 +535,7 @@ function renderCategoryStats(category, validDatesInRange) {
   
   const filteredPapers = category === 'All' 
     ? allPapersData 
-    : allPapersData.filter(paper => paper.category.includes(category));
+    : allPapersData.filter(paper => paper.category && paper.category[0] === category);
     
   if (filteredPapers.length === 0) {
     statsContainer.innerHTML = `
@@ -623,7 +623,20 @@ function renderCategoryStats(category, validDatesInRange) {
         <div class="statistics-card">
           <div id="trendChart" style="width: 100%; height: 400px;"></div>
         </div>
-      ` : ''}
+      ` : `
+        <h2 class="trend-title">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3.5 18.5L9.5 12.5L13.5 16.5L22 6.92L20.59 5.5L13.5 13.5L9.5 9.5L2 17L3.5 18.5Z" fill="currentColor"/>
+          </svg>
+          关键词变化趋势 - ${categoryDisplayName}
+        </h2>
+        <div class="statistics-card" style="display: flex; justify-content: center; align-items: center; min-height: 200px;">
+          <p class="no-data" style="text-align: center; color: #888; line-height: 1.6; font-size: 14px;">
+            📈 暂无趋势图：趋势图需要选择至少两天的数据来进行对比分析。<br>
+            Current selection contains only 1 day of data. Trend chart requires at least 2 days of data.
+          </p>
+        </div>
+      `}
     </div>
   `;
   
@@ -662,11 +675,12 @@ function drawTrendChart(trendData, validDatesInRange) {
 
   // 设置比例尺
   const x = d3.scaleTime()
-    .domain(d3.extent(validDatesInRange, d => new Date(d)))
+    .domain(d3.extent(validDatesInRange, d => new Date(d + 'T00:00:00Z')))
     .range([0, width]);
 
+  const maxY = d3.max(trendData, d => d3.max(d.values, v => v.count)) || 1;
   const y = d3.scaleLinear()
-    .domain([0, d3.max(trendData, d => d3.max(d.values, v => v.count))])
+    .domain([0, maxY])
     .nice()
     .range([height, 0]);
 
@@ -697,8 +711,8 @@ function drawTrendChart(trendData, validDatesInRange) {
 
   // 确定合适的日期格式
   function determineDateFormat(dates) {
-    const startDate = new Date(dates[0]);
-    const endDate = new Date(dates[dates.length - 1]);
+    const startDate = new Date(dates[0] + 'T00:00:00Z');
+    const endDate = new Date(dates[dates.length - 1] + 'T00:00:00Z');
     
     const sameYear = startDate.getFullYear() === endDate.getFullYear();
     const sameMonth = sameYear && startDate.getMonth() === endDate.getMonth();
@@ -750,15 +764,15 @@ function drawTrendChart(trendData, validDatesInRange) {
     .text("出现频次 (Frequency)");
 
   // 添加X轴标题
-  const startDate = new Date(validDatesInRange[0]);
-  const endDate = new Date(validDatesInRange[validDatesInRange.length - 1]);
+  const latestDate = new Date(validDatesInRange[0] + 'T00:00:00Z');
+  const earliestDate = new Date(validDatesInRange[validDatesInRange.length - 1] + 'T00:00:00Z');
   let xAxisTitle = "";
   
-  if (startDate.getFullYear() === endDate.getFullYear()) {
-    if (startDate.getMonth() === endDate.getMonth()) {
-      xAxisTitle = `${startDate.getFullYear()}/${String(startDate.getMonth() + 1).padStart(2, '0')}`;
+  if (latestDate.getFullYear() === earliestDate.getFullYear()) {
+    if (latestDate.getMonth() === earliestDate.getMonth()) {
+      xAxisTitle = `${latestDate.getFullYear()}/${String(latestDate.getMonth() + 1).padStart(2, '0')}`;
     } else {
-      xAxisTitle = `${startDate.getFullYear()}`;
+      xAxisTitle = `${latestDate.getFullYear()}`;
     }
   }
   
